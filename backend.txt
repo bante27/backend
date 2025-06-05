@@ -1,0 +1,191 @@
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+
+let tasks = [
+  { id: 1, title: 'Buy groceries', completed: false },
+  { id: 2, title: 'Read a book', completed: true },
+  { id: 3, title: 'Go for a run', completed: false },
+  { id: 4, title: 'Learn Node.js', completed: false },
+];
+
+const generateId = () => {
+  const maxId = tasks.length > 0
+    ? Math.max(...tasks.map(task => task.id))
+    : 0;
+  return maxId + 1;
+};
+
+// GET /api/tasks - Return all tasks, with optional filtering
+app.get('/api/tasks', (req, res) => {
+  const { completed } = req.query; // Get 'completed' query parameter
+
+  if (completed !== undefined) {
+    // If 'completed' parameter is present, filter tasks
+    const isCompleted = completed === 'true'; // Convert string to boolean
+    const filteredTasks = tasks.filter(task => task.completed === isCompleted);
+    res.status(200).json(filteredTasks);
+  } else {
+    // Otherwise, return all tasks
+    res.status(200).json(tasks);
+  }
+});
+
+// POST /api/tasks - Add a new task (with validation)
+app.post('/api/tasks', (req, res) => {
+  const { title } = req.body;
+
+  // Validation: Ensure title is provided and is a non-empty string
+  if (!title || typeof title !== 'string' || title.trim() === '') {
+    return res.status(400).json({ error: 'Task title is required and cannot be empty.' });
+  }
+
+  const newTask = {
+    id: generateId(),
+    title: title.trim(),
+    completed: false,
+  };
+
+  tasks.push(newTask);
+  res.status(201).json(newTask);
+});
+
+// PUT /api/tasks/:id - Mark a task as completed (or toggle completion)
+app.put('/api/tasks/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+
+  const taskIndex = tasks.findIndex(task => task.id === id);
+
+  if (taskIndex === -1) {
+    return res.status(404).json({ error: 'Task not found.' });
+  }
+
+  const updatedTask = {
+    ...tasks[taskIndex],
+    completed: req.body.completed !== undefined ? req.body.completed : !tasks[taskIndex].completed
+  };
+
+  tasks[taskIndex] = updatedTask;
+  res.status(200).json(updatedTask);
+});
+
+// DELETE /api/tasks/:id - Delete a task
+app.delete('/api/tasks/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+
+  const initialLength = tasks.length;
+  tasks = tasks.filter(task => task.id !== id);
+
+  if (tasks.length === initialLength) {
+    return res.status(404).json({ error: 'Task not found.' });
+  }
+
+  res.status(204).send();
+});
+
+// Optional: Simple HTML+CSS "API is running" page for the root URL
+app.get('/', (req, res) => {
+  res.status(200).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Task Manager API</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+            body {
+                font-family: 'Inter', sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f0f4f8;
+                color: #333;
+                text-align: center;
+            }
+            .container {
+                background-color: #ffffff;
+                padding: 40px;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                animation: fadeIn 1s ease-out;
+            }
+            h1 {
+                color: #2c3e50;
+                margin-bottom: 20px;
+                font-size: 2.5em;
+                font-weight: 700;
+            }
+            p {
+                font-size: 1.1em;
+                line-height: 1.6;
+                color: #555;
+            }
+            code {
+                background-color: #e0e7ff;
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+                color: #6a0dad;
+            }
+            .api-endpoints {
+                margin-top: 30px;
+                text-align: left;
+                background-color: #f7f9fc;
+                padding: 20px;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+            }
+            .api-endpoints h2 {
+                color: #34495e;
+                font-size: 1.5em;
+                margin-bottom: 15px;
+            }
+            .api-endpoints ul {
+                list-style-type: none;
+                padding: 0;
+            }
+            .api-endpoints li {
+                margin-bottom: 10px;
+            }
+            .api-endpoints li strong {
+                color: #3498db;
+            }
+
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🎉 Task Manager API is Running!</h1>
+            <p>This is a simple REST API for managing tasks, built with Node.js and Express.js.</p>
+            <div class="api-endpoints">
+                <h2>Available Endpoints:</h2>
+                <ul>
+                    <li><strong>GET</strong> <code>/api/tasks</code>: Get all tasks (can add <code>?completed=true</code> or <code>?completed=false</code> for filtering)</li>
+                    <li><strong>POST</strong> <code>/api/tasks</code>: Add a new task (Body: <code>{"title": "New Task Title"}</code>)</li>
+                    <li><strong>PUT</strong> <code>/api/tasks/:id</code>: Mark a task as completed (Body: <code>{"completed": true/false}</code>)</li>
+                    <li><strong>DELETE</strong> <code>/api/tasks/:id</code>: Delete a task</li>
+                </ul>
+                <p>Replace <code>:id</code> with the actual task ID.</p>
+            </div>
+            <p>Developed for your internship entrance challenge.</p>
+        </div>
+    </body>
+    </html>
+  `);
+});
+
+app.listen(PORT, () => {
+
+});
